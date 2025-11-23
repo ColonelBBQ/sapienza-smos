@@ -29,17 +29,15 @@ Dependent Variable:
 Independent Variables:
 - Female Employment Rate (15–64) -- > https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0500LAB,1.0/LAB_OFFER/LAB_OFF_EMPLOY/DCCV_TAXOCCU1/IT1,150_915_DF_DCCV_TAXOCCU1_4,1.0
 - Youth Unemployment Rate (15–24) --> https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0500LAB,1.0/LAB_OFFER/LAB_OFF_EMPLOY/DCCV_TAXOCCU1/IT1,150_915_DF_DCCV_TAXOCCU1_4,1.0
-- Average Regional Income / Disposable Income
+- Average Regional Income / Disposable Income --> https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0500LAB,1.0/LAB_EMPLWAGE/DCSC_RACLI/DCSC_RACLI_DISTRPROV/IT1,533_957_DF_DCSC_RACLI_13,1.0
 - Education Level of Women (Share of women 25–34 with degree) --> https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0820EDU,1.0/UNIVERSITY/IT1,56_190_DF_DCIS_LAUREATI_1,1.0
-- Housing Cost Index / Rent Prices
-- Urbanization Level / Population Density
+- Housing Cost Index / Rent Prices --> Regioni e tipo di comune https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,HOU,1.0/HOU_HOUSING/DCCV_ABITSPESA/IT1,33_225_DF_DCCV_ABITSPESA_6,1.0
 - Share of Women Aged 25–39 --> independent_variable_1 calculated https://demo.istat.it/app/?i=RIC&l=it
 - Share of Foreign Residents --> independent_variable_2 calculated https://demo.istat.it/app/?i=RIC&l=it
-- Marriage Rate / Average Age at First Marriage --> 
-- Availability of Childcare Services (0–3)
+- Marriage Rate / Average Age at First Marriage --> https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,POP,1.0/POP_MARUNION/DCIS_MATRIND/IT1,24_84_DF_DCIS_MATRIND_1,1.0
+- Availability of Childcare Services (0–3) --> https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0800SSW,1.0/SSW_SOCSE/DCIS_SERVSOCEDU1/IT1,47_850_DF_DCIS_SERVSOCEDU1_2,1.0
 - Public Spending on Families / Social Policies https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0800SSW,1.0/SSW_SOCSE/DCIS_SERVSOCEDU1/IT1,47_850_DF_DCIS_SERVSOCEDU1_2,1.0
-- Gender Wage Gap
-- Employment Stability
+- Employment Stability --> https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0900ENT,1.0/ENT_STRU/DICA_ADIPWP/DICA_ADIPWP_OC/IT1,183_286_DF_DICA_ADIPWP_31,1.0
 
 ## Methodology
 
