@@ -22,20 +22,22 @@ This aligns with Kertzer et al. (2008), who argue that Italy’s limited investm
 ## Data Collection
 
 ISTAT (single source requirement): natality data, regional demographic indicators, socio-economic indicators
+
 Dependent Variable: 
 - Tasso di fecondità totale (TFR) https://demo.istat.it/app/?i=FE1&l=it
+
 Independent Variables:
-- Female Employment Rate (15–64)
-- Youth Unemployment Rate (15–24)
+- Female Employment Rate (15–64) -- > https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0500LAB,1.0/LAB_OFFER/LAB_OFF_EMPLOY/DCCV_TAXOCCU1/IT1,150_915_DF_DCCV_TAXOCCU1_4,1.0
+- Youth Unemployment Rate (15–24) --> https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0500LAB,1.0/LAB_OFFER/LAB_OFF_EMPLOY/DCCV_TAXOCCU1/IT1,150_915_DF_DCCV_TAXOCCU1_4,1.0
 - Average Regional Income / Disposable Income
-- Education Level of Women (Share of women 25–34 with degree)
+- Education Level of Women (Share of women 25–34 with degree) --> https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0820EDU,1.0/UNIVERSITY/IT1,56_190_DF_DCIS_LAUREATI_1,1.0
 - Housing Cost Index / Rent Prices
 - Urbanization Level / Population Density
-- Share of Women Aged 25–39
-- Share of Foreign Residents
-- Marriage Rate / Average Age at First Marriage
+- Share of Women Aged 25–39 --> independent_variable_1 calculated https://demo.istat.it/app/?i=RIC&l=it
+- Share of Foreign Residents --> independent_variable_2 calculated https://demo.istat.it/app/?i=RIC&l=it
+- Marriage Rate / Average Age at First Marriage --> 
 - Availability of Childcare Services (0–3)
-- Public Spending on Families / Social Policies
+- Public Spending on Families / Social Policies https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0800SSW,1.0/SSW_SOCSE/DCIS_SERVSOCEDU1/IT1,47_850_DF_DCIS_SERVSOCEDU1_2,1.0
 - Gender Wage Gap
 - Employment Stability
 

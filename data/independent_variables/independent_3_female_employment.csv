@@ -1,0 +1,8 @@
+﻿FREQ,Frequenza,REF_AREA,Territorio,DATA_TYPE,Indicatore,SEX,Sesso,AGE,Età,TIME_PERIOD,Osservazione,OBS_STATUS,'Stato dell"'osservazione'
+A,Annuale,IT,Italia,EMP_R,Tasso di occupazione,2,Femmine,Y15-89,15-89 anni,2018,36.930001,,
+A,Annuale,IT,Italia,EMP_R,Tasso di occupazione,2,Femmine,Y15-89,15-89 anni,2019,37.378891,,
+A,Annuale,IT,Italia,EMP_R,Tasso di occupazione,2,Femmine,Y15-89,15-89 anni,2020,36.016806,,
+A,Annuale,IT,Italia,EMP_R,Tasso di occupazione,2,Femmine,Y15-89,15-89 anni,2021,36.598153,,
+A,Annuale,IT,Italia,EMP_R,Tasso di occupazione,2,Femmine,Y15-89,15-89 anni,2022,37.681623,,
+A,Annuale,IT,Italia,EMP_R,Tasso di occupazione,2,Femmine,Y15-89,15-89 anni,2023,38.695605,,
+A,Annuale,IT,Italia,EMP_R,Tasso di occupazione,2,Femmine,Y15-89,15-89 anni,2024,39.270858,,
