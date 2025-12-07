@@ -9,6 +9,7 @@ DEPENDENT_PATH = DATA_DIR / "dependent_variable" / "dependent_1_tfr.csv"
 INDEP_DEMO_DIR = DATA_DIR / "independent_variables" / "independent_1_demo"
 INDEP_DEMO_PATH = INDEP_DEMO_DIR / "independent_1_demo.csv"
 INDEP_WELFARE_PATH = DATA_DIR / "independent_variables" / "independent_2_welfare.csv"
+INDEP_FEMALE_EMPLOY_PATH = DATA_DIR / "independent_variables" / "independent_3_female_employment.csv"
 OUTPUT_PATH = DATA_DIR / "dataset.csv"
 DROP_REGIONS = {
     "Italia",
@@ -192,6 +193,55 @@ def load_independent_demo_alt(dir_path: Path = INDEP_DEMO_DIR, years: Optional[p
     return pd.concat(frames, ignore_index=True)
 
 
+def load_independent_welfare(
+    path: Path = INDEP_WELFARE_PATH,
+    allowed_regions: Optional[Set[str]] = None,
+    years: Optional[pd.Series] = None,
+) -> pd.DataFrame:
+    """
+    Load welfare data and aggregate total users per region/year.
+    Values are merged on region+year; for years without data, the merge will yield NaN.
+    """
+    df = pd.read_csv(path, encoding="utf-8-sig")
+    df["region"] = df["Territorio"].apply(_clean_region_name)
+    df["year"] = pd.to_numeric(df["TIME_PERIOD"], errors="coerce").astype("Int64")
+    df["Osservazione"] = pd.to_numeric(df["Osservazione"], errors="coerce")
+
+    if allowed_regions is not None:
+        df = df[df["region"].isin(allowed_regions)]
+
+    df = df[~df["region"].isin(DROP_REGIONS)]
+    grouped = df.groupby(["region", "year"], as_index=False)["Osservazione"].sum()
+    grouped = grouped.rename(columns={"Osservazione": "welfare_users"})
+
+    if years is not None:
+        grouped = grouped[grouped["year"].isin(set(pd.to_numeric(years, errors="coerce").dropna()))]
+    return grouped
+
+
+def load_independent_female_employment(
+    path: Path = INDEP_FEMALE_EMPLOY_PATH,
+    allowed_regions: Optional[Set[str]] = None,
+    years: Optional[pd.Series] = None,
+) -> pd.DataFrame:
+    """
+    Load female employment rate (15-64) per region/year.
+    """
+    df = pd.read_csv(path, encoding="utf-8-sig")
+    df["region"] = df["Territorio"].apply(_clean_region_name)
+    df["year"] = pd.to_numeric(df["TIME_PERIOD"], errors="coerce").astype("Int64")
+    df["female_employment_rate"] = pd.to_numeric(df["Osservazione"], errors="coerce")
+
+    if allowed_regions is not None:
+        df = df[df["region"].isin(allowed_regions)]
+    df = df[~df["region"].isin(DROP_REGIONS)]
+
+    grouped = df.groupby(["region", "year"], as_index=False)["female_employment_rate"].mean()
+    if years is not None:
+        grouped = grouped[grouped["year"].isin(set(pd.to_numeric(years, errors="coerce").dropna()))]
+    return grouped
+
+
 
 
 def create_dataset_csv() -> Path:
@@ -204,7 +254,12 @@ def create_dataset_csv() -> Path:
     demo = demo.sort_values("year").drop_duplicates(subset=["region", "year"], keep="last")
     demo = demo[demo["region"].isin(allowed_regions)]
 
+    welfare = load_independent_welfare(allowed_regions=allowed_regions, years=tidy_dep["year"])
+    female_emp = load_independent_female_employment(allowed_regions=allowed_regions, years=tidy_dep["year"])
+
     merged = tidy_dep.merge(demo, on=["region", "year"], how="left")
+    merged = merged.merge(welfare, on=["region", "year"], how="left")
+    merged = merged.merge(female_emp, on=["region", "year"], how="left")
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(OUTPUT_PATH, index=False)
     return OUTPUT_PATH
