@@ -1,5 +1,6 @@
 import io
 import re
+import csv
 from pathlib import Path
 from typing import Optional, Set
 import pandas as pd
@@ -13,6 +14,7 @@ INDEP_FEMALE_EMPLOY_PATH = DATA_DIR / "independent_variables" / "independent_3_f
 INDEP_SALARY_PATH = DATA_DIR / "independent_variables" / "independent_7_salary.csv"
 INDEP_WEDDINGS_PATH = DATA_DIR / "independent_variables" / "independent_6_weddings.csv"
 INDEP_HOUSING_PATH = DATA_DIR / "independent_variables" / "independent_9_housing.csv"
+INDEP_STABILITY_PATH = DATA_DIR / "independent_variables" / "independent_8_stability.csv"
 OUTPUT_PATH = DATA_DIR / "dataset.csv"
 DROP_REGIONS = {
     "Italia",
@@ -293,33 +295,91 @@ def load_independent_housing(
     return grouped
 
 
+def load_independent_stability(
+    path: Path = INDEP_STABILITY_PATH,
+    allowed_regions: Optional[Set[str]] = None,
+    years: Optional[pd.Series] = None,
+) -> pd.DataFrame:
+    """
+    Load employment stability ratio: permanent / total employees per region/year.
+    Uses POSIZ_PROF=1 Dipendenti, Sesso=Totale, PERM_TEMP_EMPLOYEES 2 (permanent) and 9 (total).
+    """
+    df = pd.read_csv(path, encoding="utf-8-sig")
+    df["region"] = df["Territorio"].apply(_clean_region_name)
+    df["year"] = pd.to_numeric(df["TIME_PERIOD"], errors="coerce").astype("Int64")
+    df["value"] = pd.to_numeric(df["Osservazione"], errors="coerce")
+
+    # Filter to employees total and sexes total.
+    df = df[(df["POSIZ_PROF"] == 1) & (df["SEX"] == 9)]
+
+    if allowed_regions is not None:
+        df = df[df["region"].isin(allowed_regions)]
+    df = df[~df["region"].isin(DROP_REGIONS)]
+
+    # Pivot PERM_TEMP_EMPLOYEES to columns for permanent vs total.
+    pivoted = df.pivot_table(
+        index=["region", "year"],
+        columns="PERM_TEMP_EMPLOYEES",
+        values="value",
+        aggfunc="sum",
+    )
+    # 2 = Tempo indeterminato, 9 = Totale
+    pivoted = pivoted.rename(columns={2: "permanent", 9: "total"}).reset_index()
+    pivoted["employment_stability_ratio"] = pivoted["permanent"] / pivoted["total"]
+
+    result = pivoted[["region", "year", "employment_stability_ratio"]]
+    if years is not None:
+        result = result[result["year"].isin(set(pd.to_numeric(years, errors="coerce").dropna()))]
+    return result
+
+
 def load_independent_weddings(
     path: Path = INDEP_WEDDINGS_PATH,
     allowed_regions: Optional[Set[str]] = None,
     years: Optional[pd.Series] = None,
 ) -> pd.DataFrame:
     """
-    Load weddings indicator NUPT_TOTM_FROM2017 per region/year.
+    Load weddings indicators NUPT_TOTM_FROM2017 (total marriages) and MAGEMBR_FROM2017
+    (average bride age) per region/year.
     """
-    # Filter lines to only the target DATA_TYPE to avoid parsing issues in other columns.
+    target_types = {"NUPT_TOTM_FROM2017", "MAGEMBR_FROM2017"}
     lines = path.read_text(encoding="utf-8-sig").splitlines()
     if not lines:
-        return pd.DataFrame(columns=["region", "year", "weddings_total"])
-    header = lines[0]
-    filtered_lines = [header] + [ln for ln in lines[1:] if ",NUPT_TOTM_FROM2017," in ln]
-    df = pd.read_csv(io.StringIO("\n".join(filtered_lines)), encoding="utf-8-sig")
-    df["region"] = df["Territorio"].apply(_clean_region_name)
-    df["year"] = pd.to_numeric(df["TIME_PERIOD"], errors="coerce").astype("Int64")
-    df["weddings_total"] = pd.to_numeric(df["Osservazione"], errors="coerce")
+        return pd.DataFrame(columns=["region", "year", "weddings_total", "marriage_age_mean"])
+
+    records = []
+    reader = csv.reader(lines)
+    _ = next(reader, None)  # skip header
+    for row in reader:
+        if len(row) < 8:
+            continue
+        data_type = row[4]
+        if data_type not in target_types:
+            continue
+        region = _clean_region_name(row[3])
+        year = pd.to_numeric(row[6], errors="coerce")
+        value = pd.to_numeric(row[7], errors="coerce")
+        records.append({"region": region, "year": year, "data_type": data_type, "value": value})
+
+    df = pd.DataFrame.from_records(records)
+    df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
 
     if allowed_regions is not None:
         df = df[df["region"].isin(allowed_regions)]
     df = df[~df["region"].isin(DROP_REGIONS)]
 
-    grouped = df.groupby(["region", "year"], as_index=False)["weddings_total"].sum()
+    grouped = df.groupby(["region", "year", "data_type"], as_index=False)["value"].mean()
+    pivoted = grouped.pivot(index=["region", "year"], columns="data_type", values="value").reset_index()
+    pivoted = pivoted.rename(
+        columns={
+            "NUPT_TOTM_FROM2017": "weddings_total",
+            "MAGEMBR_FROM2017": "marriage_age_mean",
+        }
+    )
+    result = pivoted[["region", "year", "weddings_total", "marriage_age_mean"]]
     if years is not None:
-        grouped = grouped[grouped["year"].isin(set(pd.to_numeric(years, errors="coerce").dropna()))]
-    return grouped
+        result = result[result["year"].isin(set(pd.to_numeric(years, errors="coerce").dropna()))]
+    return result
 
 
 
@@ -339,6 +399,7 @@ def create_dataset_csv() -> Path:
     salary = load_independent_salary(allowed_regions=allowed_regions, years=tidy_dep["year"])
     weddings = load_independent_weddings(allowed_regions=allowed_regions, years=tidy_dep["year"])
     housing = load_independent_housing(allowed_regions=allowed_regions, years=tidy_dep["year"])
+    stability = load_independent_stability(allowed_regions=allowed_regions, years=tidy_dep["year"])
 
     merged = tidy_dep.merge(demo, on=["region", "year"], how="left")
     merged = merged.merge(welfare, on=["region", "year"], how="left")
@@ -346,6 +407,7 @@ def create_dataset_csv() -> Path:
     merged = merged.merge(salary, on=["region", "year"], how="left")
     merged = merged.merge(weddings, on=["region", "year"], how="left")
     merged = merged.merge(housing, on=["region", "year"], how="left")
+    merged = merged.merge(stability, on=["region", "year"], how="left")
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(OUTPUT_PATH, index=False)
     return OUTPUT_PATH
