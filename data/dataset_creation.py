@@ -10,6 +10,9 @@ INDEP_DEMO_DIR = DATA_DIR / "independent_variables" / "independent_1_demo"
 INDEP_DEMO_PATH = INDEP_DEMO_DIR / "independent_1_demo.csv"
 INDEP_WELFARE_PATH = DATA_DIR / "independent_variables" / "independent_2_welfare.csv"
 INDEP_FEMALE_EMPLOY_PATH = DATA_DIR / "independent_variables" / "independent_3_female_employment.csv"
+INDEP_SALARY_PATH = DATA_DIR / "independent_variables" / "independent_7_salary.csv"
+INDEP_WEDDINGS_PATH = DATA_DIR / "independent_variables" / "independent_6_weddings.csv"
+INDEP_HOUSING_PATH = DATA_DIR / "independent_variables" / "independent_9_housing.csv"
 OUTPUT_PATH = DATA_DIR / "dataset.csv"
 DROP_REGIONS = {
     "Italia",
@@ -242,6 +245,83 @@ def load_independent_female_employment(
     return grouped
 
 
+def load_independent_salary(
+    path: Path = INDEP_SALARY_PATH,
+    allowed_regions: Optional[Set[str]] = None,
+    years: Optional[pd.Series] = None,
+) -> pd.DataFrame:
+    """
+    Load salary (HOUWAG_ENTEMP_AV_MI) per region/year.
+    """
+    df = pd.read_csv(path, encoding="utf-8-sig")
+    df = df[df["DATA_TYPE"] == "HOUWAG_ENTEMP_AV_MI"]
+    df["region"] = df["Territorio"].apply(_clean_region_name)
+    df["year"] = pd.to_numeric(df["TIME_PERIOD"], errors="coerce").astype("Int64")
+    df["salary_avg_hourly"] = pd.to_numeric(df["Osservazione"], errors="coerce")
+
+    if allowed_regions is not None:
+        df = df[df["region"].isin(allowed_regions)]
+    df = df[~df["region"].isin(DROP_REGIONS)]
+
+    grouped = df.groupby(["region", "year"], as_index=False)["salary_avg_hourly"].mean()
+    if years is not None:
+        grouped = grouped[grouped["year"].isin(set(pd.to_numeric(years, errors="coerce").dropna()))]
+    return grouped
+
+
+def load_independent_housing(
+    path: Path = INDEP_HOUSING_PATH,
+    allowed_regions: Optional[Set[str]] = None,
+    years: Optional[pd.Series] = None,
+) -> pd.DataFrame:
+    """
+    Load housing indicator ABITAZ_SPESA_REDD per region/year.
+    """
+    df = pd.read_csv(path, encoding="utf-8-sig")
+    df = df[df["DATA_TYPE"] == "ABITAZ_SPESA_REDD"]
+    df["region"] = df["Territorio"].apply(_clean_region_name)
+    df["year"] = pd.to_numeric(df["TIME_PERIOD"], errors="coerce").astype("Int64")
+    df["housing_cost_ratio"] = pd.to_numeric(df["Osservazione"], errors="coerce")
+
+    if allowed_regions is not None:
+        df = df[df["region"].isin(allowed_regions)]
+    df = df[~df["region"].isin(DROP_REGIONS)]
+
+    grouped = df.groupby(["region", "year"], as_index=False)["housing_cost_ratio"].mean()
+    if years is not None:
+        grouped = grouped[grouped["year"].isin(set(pd.to_numeric(years, errors="coerce").dropna()))]
+    return grouped
+
+
+def load_independent_weddings(
+    path: Path = INDEP_WEDDINGS_PATH,
+    allowed_regions: Optional[Set[str]] = None,
+    years: Optional[pd.Series] = None,
+) -> pd.DataFrame:
+    """
+    Load weddings indicator NUPT_TOTM_FROM2017 per region/year.
+    """
+    # Filter lines to only the target DATA_TYPE to avoid parsing issues in other columns.
+    lines = path.read_text(encoding="utf-8-sig").splitlines()
+    if not lines:
+        return pd.DataFrame(columns=["region", "year", "weddings_total"])
+    header = lines[0]
+    filtered_lines = [header] + [ln for ln in lines[1:] if ",NUPT_TOTM_FROM2017," in ln]
+    df = pd.read_csv(io.StringIO("\n".join(filtered_lines)), encoding="utf-8-sig")
+    df["region"] = df["Territorio"].apply(_clean_region_name)
+    df["year"] = pd.to_numeric(df["TIME_PERIOD"], errors="coerce").astype("Int64")
+    df["weddings_total"] = pd.to_numeric(df["Osservazione"], errors="coerce")
+
+    if allowed_regions is not None:
+        df = df[df["region"].isin(allowed_regions)]
+    df = df[~df["region"].isin(DROP_REGIONS)]
+
+    grouped = df.groupby(["region", "year"], as_index=False)["weddings_total"].sum()
+    if years is not None:
+        grouped = grouped[grouped["year"].isin(set(pd.to_numeric(years, errors="coerce").dropna()))]
+    return grouped
+
+
 
 
 def create_dataset_csv() -> Path:
@@ -256,10 +336,16 @@ def create_dataset_csv() -> Path:
 
     welfare = load_independent_welfare(allowed_regions=allowed_regions, years=tidy_dep["year"])
     female_emp = load_independent_female_employment(allowed_regions=allowed_regions, years=tidy_dep["year"])
+    salary = load_independent_salary(allowed_regions=allowed_regions, years=tidy_dep["year"])
+    weddings = load_independent_weddings(allowed_regions=allowed_regions, years=tidy_dep["year"])
+    housing = load_independent_housing(allowed_regions=allowed_regions, years=tidy_dep["year"])
 
     merged = tidy_dep.merge(demo, on=["region", "year"], how="left")
     merged = merged.merge(welfare, on=["region", "year"], how="left")
     merged = merged.merge(female_emp, on=["region", "year"], how="left")
+    merged = merged.merge(salary, on=["region", "year"], how="left")
+    merged = merged.merge(weddings, on=["region", "year"], how="left")
+    merged = merged.merge(housing, on=["region", "year"], how="left")
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(OUTPUT_PATH, index=False)
     return OUTPUT_PATH
