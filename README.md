@@ -38,6 +38,7 @@ https://demo.istat.it/app/?i=POS&l=it
 - Availability of Childcare Services (0–3) --> https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0800SSW,1.0/SSW_SOCSE/DCIS_SERVSOCEDU1/IT1,47_850_DF_DCIS_SERVSOCEDU1_2,1.0
 - Public Spending on Families / Social Policies https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0800SSW,1.0/SSW_SOCSE/DCIS_SERVSOCEDU1/IT1,47_850_DF_DCIS_SERVSOCEDU1_2,1.0
 - Employment Stability --> https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0900ENT,1.0/ENT_STRU/DICA_ADIPWP/DICA_ADIPWP_OC/IT1,183_286_DF_DICA_ADIPWP_31,1.0
+- Nidi https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0800SSW,1.0/SSW_SOCSE/DCIS_SERVSOCEDU1/IT1,47_850_DF_DCIS_SERVSOCEDU1_5,1.0
 
 ## Methodology
 

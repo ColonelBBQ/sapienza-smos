@@ -15,6 +15,7 @@ INDEP_SALARY_PATH = DATA_DIR / "independent_variables" / "independent_7_salary.c
 INDEP_WEDDINGS_PATH = DATA_DIR / "independent_variables" / "independent_6_weddings.csv"
 INDEP_HOUSING_PATH = DATA_DIR / "independent_variables" / "independent_9_housing.csv"
 INDEP_STABILITY_PATH = DATA_DIR / "independent_variables" / "independent_8_stability.csv"
+INDEP_PRIMARY_SCHOOLS_PATH = DATA_DIR / "independent_variables" / "independent_10_primary_schools.csv"
 OUTPUT_PATH = DATA_DIR / "dataset.csv"
 DROP_REGIONS = {
     "Italia",
@@ -36,6 +37,27 @@ def _clean_region_name(raw: str) -> str:
     name = name.replace("Provincia Autonoma Bolzano / Bozen", "Provincia Autonoma di Bolzano")
     name = name.replace("Provincia Autonoma Trento", "Provincia Autonoma di Trento")
     return name
+
+
+def _weighted_median_from_counts(ages, counts):
+    """Compute weighted median age given aligned age and count iterables."""
+    pairs = [
+        (int(age), float(cnt))
+        for age, cnt in zip(ages, counts)
+        if pd.notna(age) and pd.notna(cnt)
+    ]
+    if not pairs:
+        return pd.NA
+    total = sum(cnt for _, cnt in pairs)
+    if total <= 0:
+        return pd.NA
+    target = total / 2
+    running = 0.0
+    for age, cnt in sorted(pairs, key=lambda x: x[0]):
+        running += cnt
+        if running >= target:
+            return age
+    return sorted(pairs, key=lambda x: x[0])[-1][0]
 
 
 def load_dependent_tfr(path: Path = DEPENDENT_PATH) -> pd.DataFrame:
@@ -121,11 +143,15 @@ def load_independent_demo(path: Path = INDEP_DEMO_PATH, years: Optional[pd.Serie
         age_25_39_cols = [col for col in age_cols if 25 <= int(col) <= 39]
         df["pop_25_39"] = df[age_25_39_cols].sum(axis=1)
         df["share_pop_25_39"] = df["pop_25_39"] / df["total"]
+        df["median_age"] = df.apply(
+            lambda row: _weighted_median_from_counts(age_cols, [row[c] for c in age_cols]),
+            axis=1,
+        )
         df["year"] = year
-        blocks.append(df[["region", "year", "share_pop_25_39"]])
+        blocks.append(df[["region", "year", "share_pop_25_39", "median_age"]])
 
     if not blocks:
-        return pd.DataFrame(columns=["region", "year", "share_pop_25_39"])
+        return pd.DataFrame(columns=["region", "year", "share_pop_25_39", "median_age"])
 
     demo = pd.concat(blocks, ignore_index=True)
     demo = demo[~demo["region"].isin(DROP_REGIONS)].reset_index(drop=True)
@@ -143,7 +169,7 @@ def load_independent_demo_alt(dir_path: Path = INDEP_DEMO_DIR, years: Optional[p
     """
     frames = []
     if not dir_path.exists():
-        return pd.DataFrame(columns=["region", "year", "share_pop_25_39"])
+        return pd.DataFrame(columns=["region", "year", "share_pop_25_39", "median_age"])
 
     allowed_years = None
     if years is not None:
@@ -188,13 +214,19 @@ def load_independent_demo_alt(dir_path: Path = INDEP_DEMO_DIR, years: Optional[p
 
         totals = df.groupby("region", as_index=False)["total"].sum()
         pop_25_39 = df[df["age"].between(25, 39)].groupby("region", as_index=False)["total"].sum()
+        median_age = (
+            df.groupby("region")
+            .apply(lambda g: _weighted_median_from_counts(g["age"], g["total"]))
+            .reset_index(name="median_age")
+        )
         merged = totals.merge(pop_25_39, on="region", how="left", suffixes=("_total", "_25_39"))
+        merged = merged.merge(median_age, on="region", how="left")
         merged["share_pop_25_39"] = merged["total_25_39"] / merged["total_total"]
         merged["year"] = year
-        frames.append(merged[["region", "year", "share_pop_25_39"]])
+        frames.append(merged[["region", "year", "share_pop_25_39", "median_age"]])
 
     if not frames:
-        return pd.DataFrame(columns=["region", "year", "share_pop_25_39"])
+        return pd.DataFrame(columns=["region", "year", "share_pop_25_39", "median_age"])
     return pd.concat(frames, ignore_index=True)
 
 
@@ -333,6 +365,30 @@ def load_independent_stability(
     return result
 
 
+def load_independent_primary_schools(
+    path: Path = INDEP_PRIMARY_SCHOOLS_PATH,
+    allowed_regions: Optional[Set[str]] = None,
+    years: Optional[pd.Series] = None,
+) -> pd.DataFrame:
+    """
+    Load childcare places per 100 children aged 0-2 (DATA_TYPE P_100CH_Y0_2, total sector) per region/year.
+    """
+    df = pd.read_csv(path, encoding="utf-8-sig")
+    df = df[df["DATA_TYPE"] == "P_100CH_Y0_2"]
+    df["region"] = df["Territorio"].apply(_clean_region_name)
+    df["year"] = pd.to_numeric(df["TIME_PERIOD"], errors="coerce").astype("Int64")
+    df["childcare_places_per_100_children_0_2"] = pd.to_numeric(df["Osservazione"], errors="coerce")
+
+    if allowed_regions is not None:
+        df = df[df["region"].isin(allowed_regions)]
+    df = df[~df["region"].isin(DROP_REGIONS)]
+
+    grouped = df.groupby(["region", "year"], as_index=False)["childcare_places_per_100_children_0_2"].mean()
+    if years is not None:
+        grouped = grouped[grouped["year"].isin(set(pd.to_numeric(years, errors="coerce").dropna()))]
+    return grouped
+
+
 def load_independent_weddings(
     path: Path = INDEP_WEDDINGS_PATH,
     allowed_regions: Optional[Set[str]] = None,
@@ -400,6 +456,7 @@ def create_dataset_csv() -> Path:
     weddings = load_independent_weddings(allowed_regions=allowed_regions, years=tidy_dep["year"])
     housing = load_independent_housing(allowed_regions=allowed_regions, years=tidy_dep["year"])
     stability = load_independent_stability(allowed_regions=allowed_regions, years=tidy_dep["year"])
+    primary_schools = load_independent_primary_schools(allowed_regions=allowed_regions, years=tidy_dep["year"])
 
     merged = tidy_dep.merge(demo, on=["region", "year"], how="left")
     merged = merged.merge(welfare, on=["region", "year"], how="left")
@@ -408,6 +465,7 @@ def create_dataset_csv() -> Path:
     merged = merged.merge(weddings, on=["region", "year"], how="left")
     merged = merged.merge(housing, on=["region", "year"], how="left")
     merged = merged.merge(stability, on=["region", "year"], how="left")
+    merged = merged.merge(primary_schools, on=["region", "year"], how="left")
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(OUTPUT_PATH, index=False)
     return OUTPUT_PATH
