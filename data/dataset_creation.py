@@ -16,6 +16,7 @@ INDEP_WEDDINGS_PATH = DATA_DIR / "independent_variables" / "independent_6_weddin
 INDEP_HOUSING_PATH = DATA_DIR / "independent_variables" / "independent_9_housing.csv"
 INDEP_STABILITY_PATH = DATA_DIR / "independent_variables" / "independent_8_stability.csv"
 INDEP_PRIMARY_SCHOOLS_PATH = DATA_DIR / "independent_variables" / "independent_10_primary_schools.csv"
+INDEP_YOUTH_UNEMPLOY_PATH = DATA_DIR / "independent_variables" / "independent_11_unemployment_youth.csv"
 OUTPUT_PATH = DATA_DIR / "dataset.csv"
 DROP_REGIONS = {
     "Italia",
@@ -90,7 +91,7 @@ def load_dependent_tfr(path: Path = DEPENDENT_PATH) -> pd.DataFrame:
     tidy = tidy.dropna(subset=["tfr"]).sort_values(["region", "year"]).reset_index(drop=True)
 
     # Keep only years from 2004 onward (aligns with most independent series coverage).
-    tidy = tidy[tidy["year"] >= 2004].reset_index(drop=True)
+    tidy = tidy[tidy["year"] >= 2011].reset_index(drop=True)
 
     # Remove aggregates / unwanted territories.
     tidy = tidy[~tidy["region"].isin(DROP_REGIONS)].reset_index(drop=True)
@@ -389,6 +390,30 @@ def load_independent_primary_schools(
     return grouped
 
 
+def load_independent_youth_unemployment(
+    path: Path = INDEP_YOUTH_UNEMPLOY_PATH,
+    allowed_regions: Optional[Set[str]] = None,
+    years: Optional[pd.Series] = None,
+) -> pd.DataFrame:
+    """
+    Load youth unemployment rate (15-34) per region/year using DATA_TYPE UNEM_R and SEX=9 (Totale).
+    """
+    df = pd.read_csv(path, encoding="utf-8-sig")
+    df = df[(df["DATA_TYPE"] == "UNEM_R") & (df["SEX"] == 9)]
+    df["region"] = df["Territorio"].apply(_clean_region_name)
+    df["year"] = pd.to_numeric(df["TIME_PERIOD"], errors="coerce").astype("Int64")
+    df["youth_unemployment_rate_15_34"] = pd.to_numeric(df["Osservazione"], errors="coerce")
+
+    if allowed_regions is not None:
+        df = df[df["region"].isin(allowed_regions)]
+    df = df[~df["region"].isin(DROP_REGIONS)]
+
+    grouped = df.groupby(["region", "year"], as_index=False)["youth_unemployment_rate_15_34"].mean()
+    if years is not None:
+        grouped = grouped[grouped["year"].isin(set(pd.to_numeric(years, errors="coerce").dropna()))]
+    return grouped
+
+
 def load_independent_weddings(
     path: Path = INDEP_WEDDINGS_PATH,
     allowed_regions: Optional[Set[str]] = None,
@@ -457,6 +482,7 @@ def create_dataset_csv() -> Path:
     housing = load_independent_housing(allowed_regions=allowed_regions, years=tidy_dep["year"])
     stability = load_independent_stability(allowed_regions=allowed_regions, years=tidy_dep["year"])
     primary_schools = load_independent_primary_schools(allowed_regions=allowed_regions, years=tidy_dep["year"])
+    youth_unemployment = load_independent_youth_unemployment(allowed_regions=allowed_regions, years=tidy_dep["year"])
 
     merged = tidy_dep.merge(demo, on=["region", "year"], how="left")
     merged = merged.merge(welfare, on=["region", "year"], how="left")
@@ -466,6 +492,7 @@ def create_dataset_csv() -> Path:
     merged = merged.merge(housing, on=["region", "year"], how="left")
     merged = merged.merge(stability, on=["region", "year"], how="left")
     merged = merged.merge(primary_schools, on=["region", "year"], how="left")
+    merged = merged.merge(youth_unemployment, on=["region", "year"], how="left")
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(OUTPUT_PATH, index=False)
     return OUTPUT_PATH
