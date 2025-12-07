@@ -33,6 +33,7 @@ Independent Variables:
 - Education Level of Women (Share of women 25–34 with degree) --> https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0820EDU,1.0/UNIVERSITY/IT1,56_190_DF_DCIS_LAUREATI_1,1.0
 - Housing Cost Index / Rent Prices --> Regioni e tipo di comune https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,HOU,1.0/HOU_HOUSING/DCCV_ABITSPESA/IT1,33_225_DF_DCCV_ABITSPESA_6,1.0
 - Share of Women Aged 25–39 --> independent_variable_1 calculated https://demo.istat.it/app/?i=RIC&l=it
+https://demo.istat.it/app/?i=POS&l=it
 - Share of Foreign Residents --> independent_variable_2 calculated https://demo.istat.it/app/?i=RIC&l=it
 - Marriage Rate / Average Age at First Marriage --> https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,POP,1.0/POP_MARUNION/DCIS_MATRIND/IT1,24_84_DF_DCIS_MATRIND_1,1.0
 - Availability of Childcare Services (0–3) --> https://esploradati.istat.it/databrowser/#/it/dw/categories/IT1,Z0800SSW,1.0/SSW_SOCSE/DCIS_SERVSOCEDU1/IT1,47_850_DF_DCIS_SERVSOCEDU1_2,1.0
