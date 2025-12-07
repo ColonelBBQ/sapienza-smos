@@ -17,6 +17,7 @@ INDEP_HOUSING_PATH = DATA_DIR / "independent_variables" / "independent_9_housing
 INDEP_STABILITY_PATH = DATA_DIR / "independent_variables" / "independent_8_stability.csv"
 INDEP_PRIMARY_SCHOOLS_PATH = DATA_DIR / "independent_variables" / "independent_10_primary_schools.csv"
 INDEP_YOUTH_UNEMPLOY_PATH = DATA_DIR / "independent_variables" / "independent_11_unemployment_youth.csv"
+INDEP_STRANGERS_PATH = DATA_DIR / "independent_variables" / "independent_12_strangers_percentage.csv"
 OUTPUT_PATH = DATA_DIR / "dataset.csv"
 DROP_REGIONS = {
     "Italia",
@@ -100,7 +101,8 @@ def load_dependent_tfr(path: Path = DEPENDENT_PATH) -> pd.DataFrame:
 
 def load_independent_demo(path: Path = INDEP_DEMO_PATH, years: Optional[pd.Series] = None) -> pd.DataFrame:
     """
-    Load the demographic CSV (stacked blocks by year) and compute the share of population aged 25–39.
+    Load the demographic CSV (stacked blocks by year), compute the share of population aged 25–39
+    and total population.
     Each block starts with a line containing "Tutte le cittadinanze - Anno: <YEAR>".
     """
     lines = path.read_text(encoding="utf-8-sig").splitlines()
@@ -144,15 +146,16 @@ def load_independent_demo(path: Path = INDEP_DEMO_PATH, years: Optional[pd.Serie
         age_25_39_cols = [col for col in age_cols if 25 <= int(col) <= 39]
         df["pop_25_39"] = df[age_25_39_cols].sum(axis=1)
         df["share_pop_25_39"] = df["pop_25_39"] / df["total"]
+        df["population_total"] = df["total"]
         df["median_age"] = df.apply(
             lambda row: _weighted_median_from_counts(age_cols, [row[c] for c in age_cols]),
             axis=1,
         )
         df["year"] = year
-        blocks.append(df[["region", "year", "share_pop_25_39", "median_age"]])
+        blocks.append(df[["region", "year", "share_pop_25_39", "median_age", "population_total"]])
 
     if not blocks:
-        return pd.DataFrame(columns=["region", "year", "share_pop_25_39", "median_age"])
+        return pd.DataFrame(columns=["region", "year", "share_pop_25_39", "median_age", "population_total"])
 
     demo = pd.concat(blocks, ignore_index=True)
     demo = demo[~demo["region"].isin(DROP_REGIONS)].reset_index(drop=True)
@@ -170,7 +173,7 @@ def load_independent_demo_alt(dir_path: Path = INDEP_DEMO_DIR, years: Optional[p
     """
     frames = []
     if not dir_path.exists():
-        return pd.DataFrame(columns=["region", "year", "share_pop_25_39", "median_age"])
+        return pd.DataFrame(columns=["region", "year", "share_pop_25_39", "median_age", "population_total"])
 
     allowed_years = None
     if years is not None:
@@ -223,11 +226,12 @@ def load_independent_demo_alt(dir_path: Path = INDEP_DEMO_DIR, years: Optional[p
         merged = totals.merge(pop_25_39, on="region", how="left", suffixes=("_total", "_25_39"))
         merged = merged.merge(median_age, on="region", how="left")
         merged["share_pop_25_39"] = merged["total_25_39"] / merged["total_total"]
+        merged["population_total"] = merged["total_total"]
         merged["year"] = year
-        frames.append(merged[["region", "year", "share_pop_25_39", "median_age"]])
+        frames.append(merged[["region", "year", "share_pop_25_39", "median_age", "population_total"]])
 
     if not frames:
-        return pd.DataFrame(columns=["region", "year", "share_pop_25_39", "median_age"])
+        return pd.DataFrame(columns=["region", "year", "share_pop_25_39", "median_age", "population_total"])
     return pd.concat(frames, ignore_index=True)
 
 
@@ -414,6 +418,35 @@ def load_independent_youth_unemployment(
     return grouped
 
 
+def load_independent_strangers_percentage(
+    path: Path,
+    population_df: pd.DataFrame,
+    allowed_regions: Optional[Set[str]] = None,
+    years: Optional[pd.Series] = None,
+) -> pd.DataFrame:
+    """
+    Load foreign population counts (FJAN, total sex) and compute share of total population per region/year.
+    """
+    df = pd.read_csv(path, encoding="utf-8-sig")
+    df = df[(df["DATA_TYPE"] == "FJAN") & (df["SEX"] == 9)]
+    df["region"] = df["Territorio"].apply(_clean_region_name)
+    df["year"] = pd.to_numeric(df["TIME_PERIOD"], errors="coerce").astype("Int64")
+    df["foreign_population"] = pd.to_numeric(df["Osservazione"], errors="coerce")
+
+    if allowed_regions is not None:
+        df = df[df["region"].isin(allowed_regions)]
+    df = df[~df["region"].isin(DROP_REGIONS)]
+
+    population = population_df[["region", "year", "population_total"]].dropna(subset=["population_total"])
+    merged = df.merge(population, on=["region", "year"], how="left")
+    merged["foreign_population_share"] = merged["foreign_population"] / merged["population_total"]
+
+    result = merged[["region", "year", "foreign_population", "foreign_population_share"]]
+    if years is not None:
+        result = result[result["year"].isin(set(pd.to_numeric(years, errors="coerce").dropna()))]
+    return result
+
+
 def load_independent_weddings(
     path: Path = INDEP_WEDDINGS_PATH,
     allowed_regions: Optional[Set[str]] = None,
@@ -483,6 +516,12 @@ def create_dataset_csv() -> Path:
     stability = load_independent_stability(allowed_regions=allowed_regions, years=tidy_dep["year"])
     primary_schools = load_independent_primary_schools(allowed_regions=allowed_regions, years=tidy_dep["year"])
     youth_unemployment = load_independent_youth_unemployment(allowed_regions=allowed_regions, years=tidy_dep["year"])
+    strangers = load_independent_strangers_percentage(
+        path=INDEP_STRANGERS_PATH,
+        population_df=demo,
+        allowed_regions=allowed_regions,
+        years=tidy_dep["year"],
+    )
 
     merged = tidy_dep.merge(demo, on=["region", "year"], how="left")
     merged = merged.merge(welfare, on=["region", "year"], how="left")
@@ -493,6 +532,7 @@ def create_dataset_csv() -> Path:
     merged = merged.merge(stability, on=["region", "year"], how="left")
     merged = merged.merge(primary_schools, on=["region", "year"], how="left")
     merged = merged.merge(youth_unemployment, on=["region", "year"], how="left")
+    merged = merged.merge(strangers, on=["region", "year"], how="left")
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(OUTPUT_PATH, index=False)
     return OUTPUT_PATH
