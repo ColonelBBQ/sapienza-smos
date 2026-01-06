@@ -19,6 +19,7 @@ INDEP_PRIMARY_SCHOOLS_PATH = DATA_DIR / "independent_variables" / "independent_1
 INDEP_YOUTH_UNEMPLOY_PATH = DATA_DIR / "independent_variables" / "independent_11_unemployment_youth.csv"
 INDEP_STRANGERS_PATH = DATA_DIR / "independent_variables" / "independent_12_strangers_percentage.csv"
 OUTPUT_PATH = DATA_DIR / "dataset.csv"
+RAW_OUTPUT_PATH = DATA_DIR / "dataset" / "dataset_raw.csv"
 DROP_REGIONS = {
     "Italia",
     "Provincia Autonoma di Trento",
@@ -534,7 +535,9 @@ def create_dataset_csv() -> Path:
     merged = merged.merge(youth_unemployment, on=["region", "year"], how="left")
     merged = merged.merge(strangers, on=["region", "year"], how="left")
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    RAW_OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(OUTPUT_PATH, index=False)
+    merged.to_csv(RAW_OUTPUT_PATH, index=False)
     return OUTPUT_PATH
 
 
