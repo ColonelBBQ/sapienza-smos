@@ -19,7 +19,7 @@ LT_COLUMNS = [
     "median_age",
     "population_total",
     "welfare_users",
-    "weddings_total",
+    "weddings_per_1000",
     "marriage_age_mean",
     "housing_cost_ratio",
 ]
@@ -91,6 +91,11 @@ def enrich_2024_values(input_path: Path = INPUT_PATH, output_path: Path = OUTPUT
     enriched = _fill_year_for_columns(df, numeric_columns, 2024)
     if "salary_avg_hourly" in numeric_columns:
         enriched = _fill_year_for_columns(enriched, ["salary_avg_hourly"], 2023)
+
+    # Convert weddings count to weddings per 1,000 inhabitants.
+    if "weddings_total" in enriched.columns and "population_total" in enriched.columns:
+        enriched["weddings_per_1000"] = (enriched["weddings_total"] / enriched["population_total"]) * 1000
+        enriched = enriched.drop(columns=["weddings_total"])
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     enriched.to_csv(output_path, index=False)
